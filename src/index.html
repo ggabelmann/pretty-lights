@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Pretty Lights</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="-1"/>
+<style>
+   body {
+      overflow: hidden;
+   }
+   table {
+      table-layout: fixed;
+   }
+   td {
+      bgcolor: ffffff;
+      height: 100px;
+      width: 100px;
+   {
+</style>
+</head>
+<body>
+
+<div>
+   <table id="colors"/>
+</div>
+
+<script type="text/coffeescript">
+      cells = {}
+      seed = (new Date()).getTime()
+      
+      # Function.
+      generateCellKey = (row, column) ->
+         "color-#{row}-#{column}"
+         
+      # Function to make setting intervals nicer.
+      interval = (ms, callback) ->
+         setInterval(callback, ms)
+      
+      # Class which holds HSL info for a table cell, its state, and an algorithm for updating its HSL.
+      class Cell
+         constructor: (@key, seed) ->
+            @hue = seed % 360
+            @saturation = seed % 101 # We want [0..100].
+            if seed % 2 == 0 then @saturationDir = false else @saturationDir = true
+            @lightness = 100
+            @lightnessDir = false
+            @state = 'light'
+         
+         incrementHue: () ->
+            @hue += 1
+            @hue = @hue % 360
+               
+         incrementSaturation: () ->
+            if @saturationDir
+               @saturation += 1
+               if @saturation > 100
+                  @saturationDir = false
+                  @saturation = 100
+            else
+               @saturation -= 1
+               if @saturation < 0
+                  @saturationDir = true
+                  @saturation = 0
+            
+         incrementLightness: () ->
+            if @lightnessDir
+               @lightness += 1
+               if @lightness > 100
+                  @lightnessDir = false
+                  @lightness = 100
+            else
+               @lightness -= 1
+               if @lightness < 0
+                  @lightnessDir = true
+                  @lightness = 0
+                  
+         randomChange: () ->
+            if @state == 'active'
+               switch (Math.floor(Math.random() * 4))
+                  when 0
+                     @incrementSaturation()
+                  when 1
+                     @incrementLightness()
+                  else
+                     @incrementHue()
+               @updateDOM()
+         
+         toggleState: () ->
+            switch (@state)
+               when 'light'
+                  @state = 'active'
+                  
+               when 'active'
+                  @state = 'frozen'
+                  
+               when 'frozen'
+                  @state = 'light'
+                  @lightness = 100
+                  @updateDOM()
+         
+         updateDOM: () ->
+            $('#' + @key).css('background-color', "hsl(#{@hue},#{@saturation}%,#{@lightness}%)");
+         
+      # Function which creates table rows and Cell objects.
+      createCells = () ->
+         numRows = Math.floor(($(window).height() - 2) / (100 + 2)) # Subtract 2 for the top border, then add 2 for each cell's bottom border.
+         numColumns = Math.floor(($(window).width() - 2) / (100 + 2))
+         
+         for row in [0..numRows - 1]
+            newRow = ''
+            for column in [0..numColumns - 1]
+               cellKey = generateCellKey(row, column)
+               cells[cellKey] = new Cell(cellKey, seed)
+               newRow = newRow + "<td id='#{cellKey}'/>"
+            newRow = "<tr>#{newRow}</tr>"
+            $('#colors').append(newRow)
+      
+      # Document ready.
+      $(() ->
+         createCells()
+         
+         # Handle each table cell click.
+         $('td').click((event) ->
+            theCell = cells[event.target.id]
+            if theCell? then theCell.toggleState()
+            event.stopPropagation()
+         )
+         
+         # Interval timer.
+         interval(100, () ->
+            for cellKey, theCell of cells
+               theCell.randomChange()
+         )
+      )
+</script>
+
+<script src="../lib/jquery-min.js"></script>
+<script src="../lib/coffee-script-min.js"></script>
+
+</body>
+</html>
